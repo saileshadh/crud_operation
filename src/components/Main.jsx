@@ -1,58 +1,69 @@
-import React, { useEffect, useState } from 'react';
-import { Link, Route } from "react-router-dom";
-import './Style.css';
-import Card from './Card';
-import axios from 'axios';
-import Pokeinfo from './Pokeinfo';
+import React, { useState, useEffect } from "react";
+import Card from "./Card";
+import axios from "axios";
+import { Route, Link, useNavigate, Routes } from "react-router-dom";
+import "./Style.css";
+import Pokeinfo from "./Pokeinfo";
 
-export default function Main() {
+const Main = () => {
+  const [pokeData, setPokeData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [url, setUrl] = useState("https://pokeapi.co/api/v2/pokemon/");
+  const [pokeDex, setPokeDex] = useState();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const navigate = useNavigate();
 
-    const url = "https://pokeapi.co/api/v2/pokemon/"
-    const [data, setData] = useState([]);
-    const [pokeDex, setPokeDex] = useState();
-    const [currentIndex, setCurrentIndex] = useState(0);
+  const pokeFun = async () => {
+    setLoading(true);
+    const res = await axios.get(url);
+    getPokemon(res.data.results);
+    setLoading(false);
+  };
 
-    const fetchInfo = async () => {
-        const res = await axios.get(url);
-        console.log(res.data)
-        getPokemon(res.data.results);
-    };
-    const getPokemon = async (res) => {
-        res.map(async (item) => {
-            const result = await axios.get(item.url)
-            setData(state => {
-                state = [...state, result.data]
-                state.sort((a, b) => a.id > b.id ? 1 : -1)
-                return state;
-            })
-        })
-    }
-    const handleDeletePokemon = (id) => {
-        setData((prevData) => prevData.filter((pokemon) => pokemon.id !== id));
-        setPokeDex(null);
-    };
-    const handleUpdate = () => {
-        const currentIndex = data.findIndex((pokemon) => pokemon.id === pokeDex.id);
-        if (currentIndex < data.length - 1) {
-            const nextPokemon = data[currentIndex + 1];
-            setPokeDex(nextPokemon);
-            setCurrentIndex(currentIndex + 1);
-        }
-    }
-
-
-    useEffect(() => {
-        fetchInfo();
-    }, []);
-
-    return (
-        <div className='container'>
-            <div>
-                <Card pokemons={data} info={poke => setPokeDex(poke)} />
-            </div>
-            <div>
-                <Pokeinfo data={pokeDex} onDelete={handleDeletePokemon} onUpdate={handleUpdate} />
-            </div>
-        </div>
+  const getPokemon = async (res) => {
+    const data = await Promise.all(
+      res.map(async (item) => {
+        const result = await axios.get(item.url);
+        return result.data;
+      })
     );
-}
+    setPokeData(data.sort((a, b) => a.id - b.id));
+  };
+
+  const handleDeletePokemon = (id) => {
+    setPokeData((prevData) => prevData.filter((pokemon) => pokemon.id !== id));
+    setPokeDex(null);
+  };
+
+  const handleSelectCard = (selectedPokemon) => {
+    setPokeDex(selectedPokemon);
+    setCurrentIndex(pokeData.findIndex((pokemon) => pokemon.id === selectedPokemon.id));
+  };
+
+  const handleUpdate = () => {
+    if (currentIndex < pokeData.length - 1) {
+      const nextPokemon = pokeData[currentIndex + 1];
+      setPokeDex(nextPokemon);
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  useEffect(() => {
+    pokeFun();
+  }, [url]);
+
+  return (
+    <div className="container">
+      <div className="left-content">
+        {loading ? <h1>Loading...</h1> : pokeData.length > 0 ? <Card pokemons={pokeData} onSelectCard={handleSelectCard} /> : null}
+      </div>
+      <div className="right-content">
+        <Routes>
+          <Route path="/Pokeinfo/:id" element={<Pokeinfo pokeData={pokeDex} onDelete={handleDeletePokemon} onUpdate={handleUpdate} setPokeDex={setPokeDex} />} />
+        </Routes>
+      </div>
+    </div>
+  );
+};
+
+export default Main;
